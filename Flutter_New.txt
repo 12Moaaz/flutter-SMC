@@ -1,0 +1,61 @@
+fastlane_version "2.102.0"
+default_platform(:ios)
+ 
+import("brbuild_ios/fastlane/Fastfile")
+ 
+platform :ios do
+ 
+  build_number = ENV["BUILD_NUMBER"]
+  output_name = "FlutterBeer_AdHoc_#{build_number}" // isma build number ki smjh ni a rhi k ya konsa build number hai?. 
+  ipa_name = "./.build/#{output_name}" // Or isma out_name ki smjh ni a rhi k ya kis output ki bat krrha hai.
+  scheme = "Runner"
+ 
+  def kill_simulators
+    Action.sh("killall -9 Simulator 2>/dev/null || echo No simulators running")
+  end
+ 
+  def setup
+    build_setup(certificate_names: ["Flutter_Cert.p12"], //yha certificate_name ka btaa dain k konsa certificate ki bat kr rha ya? ma bs flutter SDK download ki hwi hai.  
+                provisioning_profile_names: ["Flutter_Beer_Ad_Hoc.mobileprovision"],
+                should_log: true)
+  end
+ 
+  def cleanup
+    build_cleanup
+    clear_derived_data(derived_data_path: "./dd") // Derive Data path sa kiya mtlb yaha k konsa data? app center ka ya dusra?
+  end
+ 
+  desc "The buildAdHocCore lane builds the FlutterBeer archive in the ad-hoc configuration"
+  lane :buildAdHocCore do
+    gym(scheme: "#{scheme}", configuration: "Release", output_name: "#{output_name}", clean: true, export_method: "ad-hoc", //Output kaha ki mang rha ya?? appcenter ki ya bitbucket ki? 
+        output_directory: "./.build", archive_path: ipa_name, derived_data_path: "./dd")
+  end
+ 
+  desc "The uploadToAppCenter lane uploads a pre-built IPA to AppCenter"
+  lane :uploadToAppCenter do
+      appcenter_upload(
+      apiToken: '77ed6a970ef2c8348d4a8594d9562cc5de9bd4c3',
+       ownerName: 'tanuja.kotapati-innofied.com',
+      owner_type: "user",
+        appName: 'Food1',
+      file: ".build/#{output_name}.ipa", // Yaha output sa kiya mtlb hai????
+      destinations: 'goodfood-flutter/build/app/outputs/flutter-apk/app-debug.apk',
+      destination_type: 'group',
+      notify_testers: true
+    )
+  end
+ 
+  desc "The buildAdHoc lane builds the FlutterBeer archive in the ad-hoc configuration"
+  lane :buildAdHoc do
+    begin
+      setup
+      buildAdHocCore
+      uploadToAppCenter
+    rescue => exception
+      cleanup
+      raise exception
+    else
+      cleanup
+    end
+  end
+end
